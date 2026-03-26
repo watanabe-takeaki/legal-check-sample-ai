@@ -25,12 +25,10 @@ services:
     dockerContext: ./frontend
     plan: free
     envVars:
-      - key: BACKEND_URL
+      - key: NEXT_PUBLIC_API_URL
         fromService:
           name: regal-check-backend
           type: web
-          property: hostport
-      - key: NEXT_PUBLIC_API_URL
-        value: ""
+          property: url
       - key: NODE_ENV
         value: production
