@@ -1,71 +1,96 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-const getBackendUrl = () => {
+function getBackendUrl(): string {
   const backend = process.env.BACKEND_URL || 'backend:8080';
-  return backend.startsWith('http') ? backend : `http://${backend}`;
-};
+  const url = backend.startsWith('http') ? backend : `http://${backend}`;
+  console.log(`[Proxy] BACKEND_URL env: "${process.env.BACKEND_URL}", resolved: "${url}"`);
+  return url;
+}
 
-export async function GET(request: NextRequest, { params }: { params: { route: string[] } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { route: string[] } }
+) {
   try {
     const path = params.route.join('/');
     const url = new URL(request.url);
     const targetUrl = `${getBackendUrl()}/api/${path}${url.search}`;
-    
-    console.log(`[Proxy GET] Requesting: ${targetUrl}`);
 
-    const headers = new Headers(request.headers);
-    headers.delete('host'); // backend側でホストヘッダーの不一致が起きないように削除
+    console.log(`[Proxy GET] ${targetUrl}`);
 
     const response = await fetch(targetUrl, {
       method: 'GET',
-      headers,
+      headers: {
+        'Accept': 'application/json',
+      },
     });
 
-    console.log(`[Proxy GET] Response status: ${response.status}`);
+    const data = await response.text();
+    console.log(`[Proxy GET] Status: ${response.status}, Body length: ${data.length}`);
 
-    return new Response(response.body, {
+    return new NextResponse(data, {
       status: response.status,
-      headers: response.headers,
+      headers: {
+        'Content-Type': response.headers.get('Content-Type') || 'application/json',
+      },
     });
   } catch (error) {
     console.error('[Proxy GET Error]', error);
-    return new Response(JSON.stringify({ error: 'Proxy GET failed', details: String(error) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Backend connection failed', details: String(error) },
+      { status: 502 }
+    );
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { route: string[] } }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { route: string[] } }
+) {
   try {
     const path = params.route.join('/');
     const url = new URL(request.url);
     const targetUrl = `${getBackendUrl()}/api/${path}${url.search}`;
 
-    console.log(`[Proxy POST] Requesting: ${targetUrl}`);
+    console.log(`[Proxy POST] ${targetUrl}`);
 
-    const headers = new Headers(request.headers);
-    headers.delete('host');
+    const body = await request.text();
 
     const response = await fetch(targetUrl, {
       method: 'POST',
-      headers,
-      body: request.body,
-      // @ts-ignore
-      duplex: 'half',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
+      body,
     });
 
-    console.log(`[Proxy POST] Response status: ${response.status}`);
+    console.log(`[Proxy POST] Status: ${response.status}`);
 
-    return new Response(response.body, {
+    // SSEストリーミングレスポンスをそのまま返す
+    if (response.headers.get('Content-Type')?.includes('text/event-stream')) {
+      return new Response(response.body, {
+        status: response.status,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+
+    const data = await response.text();
+    return new NextResponse(data, {
       status: response.status,
-      headers: response.headers,
+      headers: {
+        'Content-Type': response.headers.get('Content-Type') || 'application/json',
+      },
     });
   } catch (error) {
     console.error('[Proxy POST Error]', error);
-    return new Response(JSON.stringify({ error: 'Proxy POST failed', details: String(error) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Backend connection failed', details: String(error) },
+      { status: 502 }
+    );
   }
 }

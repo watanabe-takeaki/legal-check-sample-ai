@@ -28,4 +28,6 @@ COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 
+# BACKEND_URLはRenderが実行時に注入する環境変数
+# server.jsはNode.jsで動くため、process.envから読み取れる
 CMD ["node", "server.js"]

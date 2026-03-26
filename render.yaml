@@ -32,4 +32,5 @@ services:
           property: hostport
       - key: NEXT_PUBLIC_API_URL
         value: ""
+      - key: NODE_ENV
         value: production
