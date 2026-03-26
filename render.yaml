@@ -29,6 +29,6 @@ services:
         fromService:
           name: regal-check-backend
           type: web
-          property: url
+          property: host
       - key: NODE_ENV
         value: production
