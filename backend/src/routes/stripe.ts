@@ -51,8 +51,13 @@ router.post('/create-checkout', requireAuth as any, async (req: AuthRequest, res
 
     res.json({ url: session.url });
   } catch (error: any) {
-    console.error('Checkout error:', error);
-    res.status(500).json({ error: 'Checkout Sessionの作成に失敗しました。' });
+    console.error('Checkout error:', error.message || error);
+    console.error('STRIPE_SECRET_KEY set:', !!process.env.STRIPE_SECRET_KEY);
+    console.error('STRIPE_PRICE_ID:', PRICE_ID || '(not set)');
+    res.status(500).json({
+      error: 'Checkout Sessionの作成に失敗しました。',
+      details: error.message || String(error),
+    });
   }
 });
 
