@@ -1,7 +1,4 @@
-let API_URL = process.env.NEXT_PUBLIC_API_URL || '';
-if (API_URL && !API_URL.startsWith('http')) {
-  API_URL = `https://${API_URL}`;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export interface DocumentType {
   id: string;
