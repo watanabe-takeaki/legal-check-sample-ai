@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DocumentType, fetchDocumentTypes, fetchMe, getToken, syncSubscriptionStatus, UserInfo } from '@/lib/api';
 
 export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="hero"><div className="spinner" style={{ margin: '4rem auto', width: 40, height: 40, borderWidth: 3 }} /></div>}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
