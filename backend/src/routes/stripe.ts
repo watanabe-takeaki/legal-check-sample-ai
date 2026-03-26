@@ -19,9 +19,20 @@ router.post('/create-checkout', requireAuth as any, async (req: AuthRequest, res
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user || !user.stripeCustomerId) {
-      res.status(400).json({ error: 'Stripeカスタマー情報が見つかりません。' });
+    if (!user) {
+      res.status(400).json({ error: 'ユーザーが見つかりません。' });
       return;
+    }
+
+    // stripeCustomerIdがない場合は自動作成
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({ email: user.email });
+      customerId = customer.id;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: customerId },
+      });
     }
 
     // 既にアクティブなサブスクがある場合はポータルへ
@@ -31,7 +42,7 @@ router.post('/create-checkout', requireAuth as any, async (req: AuthRequest, res
     }
 
     const session = await stripe.checkout.sessions.create({
-      customer: user.stripeCustomerId,
+      customer: customerId,
       mode: 'subscription',
       line_items: [{ price: PRICE_ID, quantity: 1 }],
       success_url: `${FRONTEND_URL}/?payment=success`,

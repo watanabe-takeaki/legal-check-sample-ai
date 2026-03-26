@@ -89,7 +89,7 @@ export default function PricingPage() {
 
         <div style={{ marginBottom: '1.5rem' }}>
           <span style={{ fontSize: '3rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-            ¥980
+            ¥1,980(税込)
           </span>
           <span style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
             /月
@@ -105,10 +105,8 @@ export default function PricingPage() {
           }}
         >
           {[
-            '全12種類の法的文書を無制限に生成',
-            'GPT-4o搭載の高品質AI文書生成',
+            '10種類以上の法的文書を無制限に生成',
             '日本法に完全準拠',
-            'SSEリアルタイムストリーミング',
             'コピー＆ダウンロード機能',
             'いつでも解約可能',
           ].map((feature, i) => (
