@@ -5,13 +5,12 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production=false
+RUN npm ci
 
 COPY tsconfig.json ./
 COPY prisma ./prisma
 COPY src ./src
 
-# Prisma Clientを生成してからTypeScriptをコンパイル
 RUN npx prisma generate
 RUN npx tsc
 
@@ -23,7 +22,7 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Prismaスキーマと生成されたクライアント
 COPY --from=builder /app/prisma ./prisma
@@ -33,5 +32,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 8080
 
-# 起動時にDB migrationを実行してからサーバー起動
 CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/index.js"]
