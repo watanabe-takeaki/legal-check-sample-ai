@@ -1,0 +1,36 @@
+# Render.com Blueprint
+# https://render.com/docs/blueprint-spec
+
+services:
+  # --- バックエンド API ---
+  - type: web
+    name: regal-check-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.prod
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8080"
+
+  # --- フロントエンド ---
+  - type: web
+    name: regal-check-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile.prod
+    dockerContext: ./frontend
+    plan: free
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: regal-check-backend
+          type: web
+          property: hostport
+      - key: NEXT_PUBLIC_API_URL
+        value: ""
+      - key: NODE_ENV
+        value: production
