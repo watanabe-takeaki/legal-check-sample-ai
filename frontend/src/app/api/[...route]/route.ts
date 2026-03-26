@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 function getBackendUrl(): string {
-  const backend = process.env.BACKEND_URL || 'backend:8080';
+  const backend = process.env.BACKEND_URL || 'http://backend:8080';
+  // そのままURLとして使えるならそのまま、そうでなければhttp://を付与
   const url = backend.startsWith('http') ? backend : `http://${backend}`;
   console.log(`[Proxy] BACKEND_URL env: "${process.env.BACKEND_URL}", resolved: "${url}"`);
   return url;

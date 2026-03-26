@@ -16,6 +16,8 @@ services:
         value: production
       - key: PORT
         value: "8080"
+      - key: FRONTEND_URL
+        value: "https://regal-check-frontend.onrender.com"
 
   # --- フロントエンド ---
   - type: web
@@ -26,10 +28,7 @@ services:
     plan: free
     envVars:
       - key: BACKEND_URL
-        fromService:
-          name: regal-check-backend
-          type: web
-          property: hostport
+        value: "https://regal-check-backend.onrender.com"
       - key: NEXT_PUBLIC_API_URL
         value: ""
       - key: NODE_ENV
