@@ -1,4 +1,14 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: regalcheck
+      POSTGRES_USER: regalcheck
+      POSTGRES_PASSWORD: regalcheck_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -7,9 +17,18 @@ services:
       - "8080:8080"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql://regalcheck:regalcheck_dev@db:5432/regalcheck
+      - JWT_SECRET=dev-local-secret-key-change-in-production
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PRICE_ID=${STRIPE_PRICE_ID}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - FRONTEND_URL=http://localhost:3001
       - NODE_ENV=development
     volumes:
       - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+    depends_on:
+      - db
     restart: unless-stopped
 
   frontend:
@@ -37,3 +56,6 @@ services:
     depends_on:
       - frontend
     restart: unless-stopped
+
+volumes:
+  pgdata:

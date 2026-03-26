@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
-import { DocumentType, fetchDocumentType, generateDocumentStream } from '@/lib/api';
+import { useParams, useRouter } from 'next/navigation';
+import { DocumentType, fetchDocumentType, generateDocumentStream, getToken } from '@/lib/api';
 import ReactMarkdown from 'react-markdown';
 
 export default function DocumentPage() {
   const params = useParams();
+  const router = useRouter();
   const typeId = params.type as string;
 
   const [docType, setDocType] = useState<DocumentType | null>(null);
@@ -17,6 +18,13 @@ export default function DocumentPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  // 認証チェック
+  useEffect(() => {
+    if (!getToken()) {
+      router.push('/login');
+    }
+  }, [router]);
 
   useEffect(() => {
     fetchDocumentType(typeId)
@@ -41,7 +49,6 @@ export default function DocumentPage() {
       e.preventDefault();
       if (!docType) return;
 
-      // Validate required fields
       const missingFields = docType.fields
         .filter((f) => f.required && !fields[f.id])
         .map((f) => f.label);
@@ -81,18 +88,47 @@ export default function DocumentPage() {
     });
   }, [generatedContent]);
 
-  const handleDownload = useCallback(() => {
-    const blob = new Blob([generatedContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${docType?.name || 'document'}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setToast('ファイルをダウンロードしました');
-    setTimeout(() => setToast(null), 3000);
+  /**
+   * マークダウンから整形されたHTMLを生成し、html2pdf.jsでPDF出力
+   */
+  const handleDownload = useCallback(async () => {
+    setToast('PDFを生成中...');
+
+    // html2pdf.js を動的インポート（クライアントサイドのみ）
+    const html2pdf = (await import('html2pdf.js')).default;
+
+    // マークダウンを整形されたHTMLに変換
+    const htmlContent = convertMarkdownToFormattedHtml(generatedContent, docType?.name || '文書');
+
+    const container = document.createElement('div');
+    container.innerHTML = htmlContent;
+    document.body.appendChild(container);
+
+    const opt = {
+      margin: [15, 15, 15, 15], // mm
+      filename: `${docType?.name || 'document'}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        letterRendering: true,
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+      },
+    };
+
+    try {
+      await html2pdf().set(opt).from(container).save();
+      setToast('PDFをダウンロードしました');
+    } catch {
+      setToast('PDF生成に失敗しました');
+    } finally {
+      document.body.removeChild(container);
+      setTimeout(() => setToast(null), 3000);
+    }
   }, [generatedContent, docType]);
 
   const handleReset = useCallback(() => {
@@ -252,7 +288,7 @@ export default function DocumentPage() {
                     📋 コピー
                   </button>
                   <button className="btn-secondary" onClick={handleDownload}>
-                    💾 ダウンロード
+                    📄 PDF ダウンロード
                   </button>
                   <button className="btn-secondary" onClick={handleReset}>
                     🔄 再入力
@@ -287,4 +323,109 @@ export default function DocumentPage() {
       {toast && <div className="toast">✓ {toast}</div>}
     </div>
   );
+}
+
+/**
+ * マークダウンテキストを法的文書としてフォーマットされたHTMLに変換
+ */
+function convertMarkdownToFormattedHtml(markdown: string, docName: string): string {
+  const lines = markdown.split('\n');
+  let html = '';
+  let inList = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // 空行
+    if (!trimmed) {
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      continue;
+    }
+
+    // H1: 文書タイトル（中央寄せ、大きめ）
+    if (trimmed.startsWith('# ')) {
+      const text = trimmed.slice(2).trim();
+      html += `<h1 style="text-align:center; font-size:20pt; font-weight:bold; margin:20px 0 30px; border-bottom:2px solid #333; padding-bottom:15px;">${escapeHtml(text)}</h1>`;
+      continue;
+    }
+
+    // H2: セクション見出し
+    if (trimmed.startsWith('## ')) {
+      const text = trimmed.slice(3).trim();
+      html += `<h2 style="font-size:14pt; font-weight:bold; margin:25px 0 10px; border-bottom:1px solid #999; padding-bottom:5px;">${escapeHtml(text)}</h2>`;
+      continue;
+    }
+
+    // H3: サブセクション
+    if (trimmed.startsWith('### ')) {
+      const text = trimmed.slice(4).trim();
+      html += `<h3 style="font-size:12pt; font-weight:bold; margin:20px 0 8px;">${escapeHtml(text)}</h3>`;
+      continue;
+    }
+
+    // リスト
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      if (!inList) {
+        html += '<ul style="margin:5px 0; padding-left:25px;">';
+        inList = true;
+      }
+      html += `<li style="margin:3px 0; line-height:1.8;">${escapeHtml(trimmed.slice(2))}</li>`;
+      continue;
+    }
+
+    // 番号付きリスト
+    const numberedMatch = trimmed.match(/^\d+\.\s+(.*)/);
+    if (numberedMatch) {
+      if (!inList) {
+        html += '<ol style="margin:5px 0; padding-left:25px;">';
+        inList = true;
+      }
+      html += `<li style="margin:3px 0; line-height:1.8;">${escapeHtml(numberedMatch[1])}</li>`;
+      continue;
+    }
+
+    if (inList) {
+      html += '</ul>';
+      inList = false;
+    }
+
+    // 通常の段落（**太字** をHTML <strong> に変換）
+    let text = escapeHtml(trimmed);
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html += `<p style="margin:8px 0; line-height:1.8; text-indent:1em;">${text}</p>`;
+  }
+
+  if (inList) {
+    html += '</ul>';
+  }
+
+  return `
+    <div style="
+      font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'MS PMincho', serif;
+      font-size: 10.5pt;
+      color: #000;
+      background: #fff;
+      padding: 0;
+      line-height: 1.8;
+      max-width: 100%;
+    ">
+      ${html}
+      <div style="margin-top:60px; text-align:right; font-size:9pt; color:#666; border-top:1px solid #ccc; padding-top:10px;">
+        本文書はRegal Check AIにより生成されたドラフトです。<br>
+        法的効力を持たせる場合は弁護士にご確認ください。
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

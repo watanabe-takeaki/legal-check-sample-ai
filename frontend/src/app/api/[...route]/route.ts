@@ -2,10 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 
 function getBackendUrl(): string {
   const backend = process.env.BACKEND_URL || 'http://backend:8080';
-  // そのままURLとして使えるならそのまま、そうでなければhttp://を付与
   const url = backend.startsWith('http') ? backend : `http://${backend}`;
-  console.log(`[Proxy] BACKEND_URL env: "${process.env.BACKEND_URL}", resolved: "${url}"`);
   return url;
+}
+
+function forwardHeaders(request: NextRequest): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+  // Authorization ヘッダーを転送
+  const auth = request.headers.get('Authorization');
+  if (auth) {
+    headers['Authorization'] = auth;
+  }
+  // Content-Type を転送
+  const contentType = request.headers.get('Content-Type');
+  if (contentType) {
+    headers['Content-Type'] = contentType;
+  }
+  return headers;
 }
 
 export async function GET(
@@ -17,17 +32,12 @@ export async function GET(
     const url = new URL(request.url);
     const targetUrl = `${getBackendUrl()}/api/${path}${url.search}`;
 
-    console.log(`[Proxy GET] ${targetUrl}`);
-
     const response = await fetch(targetUrl, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: forwardHeaders(request),
     });
 
     const data = await response.text();
-    console.log(`[Proxy GET] Status: ${response.status}, Body length: ${data.length}`);
 
     return new NextResponse(data, {
       status: response.status,
@@ -53,20 +63,17 @@ export async function POST(
     const url = new URL(request.url);
     const targetUrl = `${getBackendUrl()}/api/${path}${url.search}`;
 
-    console.log(`[Proxy POST] ${targetUrl}`);
-
     const body = await request.text();
 
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
+        ...forwardHeaders(request),
         'Content-Type': 'application/json',
         'Accept': 'text/event-stream',
       },
       body,
     });
-
-    console.log(`[Proxy POST] Status: ${response.status}`);
 
     // SSEストリーミングレスポンスをそのまま返す
     if (response.headers.get('Content-Type')?.includes('text/event-stream')) {

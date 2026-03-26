@@ -47,7 +47,7 @@ export const documentTypes: DocumentType[] = [
   },
   {
     id: 'llc',
-    name: 'LLC運営協定書',
+    name: '合同会社 運営協定書',
     description: '合同会社の運営ルール・メンバー間の合意書を作成します。',
     icon: '🏢',
     color: '#0ea5e9',

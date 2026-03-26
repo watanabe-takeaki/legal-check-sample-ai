@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { documentsRouter } from './routes/documents';
+import { authRouter } from './routes/auth';
+import { stripeRouter } from './routes/stripe';
 
 dotenv.config();
 
@@ -15,7 +17,6 @@ const allowedOrigins = [
   'https://tachistoscopic-delora-resentfully.ngrok-free.dev',
 ];
 
-// Render.comのフロントエンドURL
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
@@ -32,6 +33,9 @@ app.use(cors({
   credentials: true,
 }));
 
+// Stripe Webhookにはrawボディが必要（JSON parseの前に設定）
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '10mb' }));
 
 // Health check
@@ -40,6 +44,8 @@ app.get('/health', (_req, res) => {
 });
 
 // API routes
+app.use('/api/auth', authRouter);
+app.use('/api/stripe', stripeRouter);
 app.use('/api/documents', documentsRouter);
 
 // Error handler

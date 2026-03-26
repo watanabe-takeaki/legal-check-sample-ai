@@ -1,6 +1,12 @@
 # Render.com Blueprint
 # https://render.com/docs/blueprint-spec
 
+databases:
+  - name: regal-check-db
+    plan: free
+    databaseName: regalcheck
+    user: regalcheck
+
 services:
   # --- バックエンド API ---
   - type: web
@@ -10,14 +16,26 @@ services:
     dockerContext: ./backend
     plan: free
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: regal-check-db
+          property: connectionString
       - key: OPENAI_API_KEY
         sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: FRONTEND_URL
+        value: "https://regal-check-frontend.onrender.com"
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "8080"
-      - key: FRONTEND_URL
-        value: "https://regal-check-frontend.onrender.com"
 
   # --- フロントエンド ---
   - type: web
